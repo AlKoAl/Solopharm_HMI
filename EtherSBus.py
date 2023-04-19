@@ -62,9 +62,9 @@ Nexser = serial.Serial(  # Объект управляющий передаче�
     )
 
 # Задаём параметры опрашиваемых полей: значение; IP PLC, к которому мы обращаемся; регистр и флаг для параметра
-temperature = Configurator('Temperature', '192.168.0.14', 'ON', register=22, flag=22)
-pressure = Configurator('Pressure', '192.168.0.12', 'ON', register=23, flag=23)
-humidity = Configurator('Humidity', '192.168.0.11', 'OFF', register=22, flag=22)
+temperature = Configurator('Temperature', '192.168.0.10', 'ON', register=1, flag=1)
+pressure = Configurator('Pressure', '192.168.0.10', 'ON', register=1, flag=1)
+humidity = Configurator('Humidity', '192.168.0.10', 'ON', register=1, flag=1)
 TPH = []
 for i in [temperature, pressure, humidity]:  # Если status поля OFF, значит поле не нужно и мы его выключаем
     if i.status == 'ON':
