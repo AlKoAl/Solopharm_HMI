@@ -8,11 +8,13 @@
 
 
 from digimat.saia import SAIANode
+from threading import Thread, RLock
+from time import sleep
 import serial
 import struct
 
 
-class Configurator:  # Класс, который позволяет задать параметры для полей един>
+class Configurator:  # Класс, который позволяет задать параметры для полей единообразно
     def __init__(self, C_type, C_IP, status, register, flag):
         if C_type == "Temperature":
             self.C_type = 0
@@ -46,8 +48,32 @@ def change_color(position, status):  # Функция изменения цве�
             Nexser.write(end)  # k - структура b'xff' или же char(255)
     else:  # Если во флаге лежит значение 1, то меняем цвет на красный 63488
         for a in range(3, 9, 3):
-            Nexser.write(('t' + str(position + a) + '.bco=' + str(63488)).encode())
+            Nexser.write(('t' + str(position + a) +'.bco=' + str(63488)).encode())
             Nexser.write(end)  # k - структура b'xff' или же char(255)
+
+
+def on_off_tread():
+    global TPH, locker
+    with locker:
+        off_field = []
+        for j in TPH:
+            if j.status == "OFF":
+                off_field.append(j)
+        if len(off_field) == 0:
+            return
+        else:
+            for j in off_field:
+                TPH.remove(j)
+            while True:
+                for j in off_field:
+                    Nexser.write(('t' + str(j.C_type + 3) + '.txt=""').encode())  # Убираем надпись
+                    Nexser.write(end)
+                    Nexser.write(('t' + str(j.C_type + 6) + '.txt=""').encode())  # Убираем надпись
+                    Nexser.write(end)  # end - структура b'xff' или же char(255)
+                    for a in range(3, 9, 3):  # Заполняем голубым цветом ныне пустое поле
+                        Nexser.write(('t' + str(j.C_type + a) + '.bco=' + str(11676)).encode())
+                        Nexser.write(end)
+                sleep(2)
 
 
 end = struct.pack('3B', 0xff, 0xff, 0xff)  # Окончание посылок в Serial
@@ -62,19 +88,14 @@ Nexser = serial.Serial(  # Объект управляющий передаче�
     )
 
 # Задаём параметры опрашиваемых полей: значение; IP PLC, к которому мы обращаемся; регистр и флаг для параметра
-temperature = Configurator('Temperature', '192.168.0.10', 'ON', register=1, flag=1)
-pressure = Configurator('Pressure', '192.168.0.10', 'ON', register=1, flag=1)
-humidity = Configurator('Humidity', '192.168.0.10', 'ON', register=1, flag=1)
-TPH = []
-for i in [temperature, pressure, humidity]:  # Если status поля OFF, значит поле не нужно и мы его выключаем
-    if i.status == 'ON':
-        TPH.append(i)  # Включить в массив опрашиваемых ПЛК. Если не включать, то связи с ПЛК создано не буедт
-    else:
-        Nexser.write(('t' + str(i.C_type + 3) + '.txt=""').encode())  # Убираем надпись
-        Nexser.write(end)  # end - структура b'xff' или же char(255)
-        for a in range(3, 9, 3):  # Заполняем голубым цветом ныне пустое поле
-            Nexser.write(('t' + str(i.C_type + a) + '.bco=' + str(11676)).encode())
-            Nexser.write(end)
+temperature = Configurator('Temperature', '192.168.0.14', 'ON', register=22, flag=22)
+pressure = Configurator('Pressure', '192.168.0.12', 'ON', register=23, flag=23)
+humidity = Configurator('Humidity', '192.168.0.11', 'OFF', register=22, flag=22)
+TPH = [temperature, pressure, humidity]
+
+locker = RLock()
+on_off = Thread(target=on_off_tread)
+on_off.start()
 
 node = SAIANode(lid=253)  # Создаём объект node
 
